@@ -11,10 +11,31 @@ permissions:
 jobs:
   security:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version:
+          - 16.18.1
+        pnpm-version:
+          - 7.19
     if: github.ref == 'refs/heads/main'
     permissions: write-all
     steps:
       - uses: actions/checkout@master
+      
+      - name: Setup pnpm ${{ matrix.pnpm-version }}
+        uses: pnpm/action-setup@v2
+        with:
+          version: ${{ matrix.pnpm-version }}
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'pnpm'
+
+      - name: Install Dependencies
+        run: pnpm install
+
       - name: Run Snyk to check for vulnerabilities
         uses: snyk/actions/node@master
         continue-on-error: true # To make sure that SARIF upload gets called
@@ -22,6 +43,7 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           args: --sarif-file-output=snyk.sarif
+
       - name: Upload result to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v2
         with:
